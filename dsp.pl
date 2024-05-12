@@ -2,6 +2,7 @@
 :- consult(recipes).
 :- table is_renewable/1.
 :- table recipe/1.
+:- table make_step/5.
 
 
 is_renewable(Material) :-
@@ -48,7 +49,7 @@ dedup([N-Item|Rest], Deduped) :-
 
 append_dedup(ListOfLists, List) :- append(ListOfLists, L), dedup(L, List).
 
-make_one(N-Prod, M-(Fac-ShortRecipe), Inputs, Extras, Recipe) :-
+make_step(N-Prod, M-(Fac-ShortRecipe), Inputs, Extras, Recipe) :-
     recipe(Recipe), Recipe = RecipeOuts-(RecipeM-Fac)-RecipeIns,
     simplify_io(RecipeOuts, RecipeIns, BaseOuts, BaseIns),
     member(_-Prod, BaseOuts),
@@ -65,11 +66,9 @@ make_one(N-Prod, M-(Fac-ShortRecipe), Inputs, Extras, Recipe) :-
     
     recipe_short_name(Recipe, ShortRecipe)/*,
     debug_write([N-Prod], [M-(Fac-ShortRecipe)], Inputs, Extras)*/.
-    
 
-make([], [], [], _).
 make(N-Prod, Facs, Extras, UsedRecipes) :-
-    make_one(N-Prod, StepFac, StepInputs, StepExtras, StepRecipe),
+    make_step(N-Prod, StepFac, StepInputs, StepExtras, StepRecipe),
     \+member(StepRecipe, UsedRecipes),
     same_length(NextUsedRecipes, StepInputs),
     maplist(=([StepRecipe|UsedRecipes]), NextUsedRecipes),
@@ -85,13 +84,13 @@ make(N-Product, Manufacturers, Miners, RenewableCollectors, Extras) :-
 print_result([]).
 print_result([[Mfgs, Miners, RenewableCollectors, Extras]|Rest]) :-
     maplist([N-(Fac-(Ins-Outs)), N-Fac-Ins-Outs]>>(true), Mfgs, MfgsP),
-    maplist([N-(Fac-([Item]-[])), N-Fac-Item]>>(true), Miners, MinersP),
-    maplist([N-(Fac-([Item]-[])), N-Fac-Item]>>(true),
+    maplist([N-(_-([Item]-[])), N-Item]>>(true), Miners, MinersP),
+    maplist([N-(_-([Item]-[])), N-Item]>>(true),
             RenewableCollectors, RenewableCollectorsP),
-    % write('factories='), write(MfgsP), nl,
+    write('factories='), write(MfgsP), nl,
     write('miners='), write(MinersP), nl,
     write('renewables='), write(RenewableCollectorsP), nl,
-    % write('extras='), write(Extras), nl,
+    write('extras='), write(Extras), nl,
     nl,
     print_result(Rest).
     
@@ -101,9 +100,36 @@ debug_write(Products, Facilities, Inputs, Extras) :-
     (Extras = []; (Extras \= [], write(' leaving '), write(Extras))),
     nl.
 
-% findall(
-%     [Mfgs, Miners, Renewables, Extras],
-%     (   make(10-purple_matrix, Mfgs, Miners, Renewables, Extras),
-%         \+member(_-(ray_receiver-_), Renewables)),
-%     Bag),
-% print_result(Bag).
+compare_solutions(Delta, Solution1, Solution2) :-
+    Solution1 = [_, Miners1, Renewables1, Extras1],
+    Solution2 = [_, Miners2, Renewables2, Extras2],
+    Delta = (=) .
+
+
+make_all(N-Prod) :-
+    findall(
+        [Mfgs, Miners, Renewables, Extras],
+        (   make(N-Prod, Mfgs, Miners, Renewables, Extras),
+            \+member(_-(ray_receiver-_), Renewables)
+        ),
+        Bag
+    ),
+    % findall(
+    %     Solution,
+    %     (   member(Solution, Bag),
+    %         findall(
+    %             OtherSolution,
+    %             (   member(OtherSolution, Bag), Solution \= OtherSolution,
+    %                 Solution = [_, Miners, Renewables, _],
+    %                 OtherSolution = [_, OtherMiners, OtherRenewables, _],
+    %                 subset(Miners, OtherMiners)
+    %             ),
+    %             Supersets
+    %         ),
+    %         Supersets = []
+    %     ),
+    %     SolutionsWithoutSuperset
+    % ),
+    print_result(Bag),
+    length(Bag, Total), write('== '), write(Total), write(' =='),
+    nl.
