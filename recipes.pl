@@ -6,7 +6,7 @@ recipe([1-silicon_ore]-(1-miner)-[]).
 recipe([1-titanium_ore]-(1-miner)-[]).
 recipe([1-stone]-(1-miner)-[]).
 recipe([1-coal]-(1-miner)-[]).
-recipe([1-fire_ice]-(1-miner)-[]).
+% recipe([1-fire_ice]-(1-miner)-[]).  % renewable
 recipe([1-organic]-(1-miner)-[]).
 recipe([1-kimberlite]-(1-miner)-[]).
 recipe([1-stalagmite]-(1-miner)-[]).
@@ -51,16 +51,15 @@ recipe([2-diamond]-(1.5-smelter)-[1-kimberlite]).
 % refinery
 recipe([2-oil, 1-hydrogen]-(4-refinery)-[2-crude]).
 recipe([1-graphite, 3-hydrogen]-(4-refinery)-[1-oil, 2-hydrogen]).
-% coal-H2-oil -> more oil causes oil-H2 loop and is pretty much useless anyway
-% recipe([3-oil]-(4-refinery)-[2-oil, 1-hydrogen, 1-coal]).
+% recipe([3-oil]-(4-refinery)-[2-oil, 1-hydrogen, 1-coal]).  % should not use
 
 % chemical facility
 recipe([1-plastic]-(3-chem)-[2-oil, 1-graphite]).
-recipe([2-graphene]-(3-chem)-[3-graphite, 1-sulfuric_acid]).
+% recipe([2-graphene]-(3-chem)-[3-graphite, 1-sulfuric_acid]).  % should not use
 recipe([2-graphene, 1-hydrogen]-(2-chem)-[2-fire_ice]).
 recipe([2-nanotube]-(4-chem)-[3-graphene, 1-titanium]).
 recipe([2-nanotube]-(4-chem)-[6-stalagmite]).
-recipe([4-sulfuric_acid]-(6-chem)-[6-oil, 8-stone, 4-water]).
+% recipe([4-sulfuric_acid]-(6-chem)-[6-oil, 8-stone, 4-water]).  % renewable
 recipe([1-organic]-(6-chem)-[2-plastic, 1-oil, 1-water]).
 
 % particle collider

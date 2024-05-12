@@ -1,6 +1,13 @@
 % Dyson Sphere Program calculator
 :- consult(recipes).
+:- table is_renewable/1.
+:- table recipe/1.
 
+
+is_renewable(Material) :-
+    recipe(Outs-(_-Fac)-[]),
+    Fac \= miner,
+    member(_-Material, Outs).
 
 simplify_io(RawOut, RawIn, Out, In) :-
     ( member(A-Item, RawOut), member(B-Item, RawIn)
@@ -61,23 +68,42 @@ make_one(N-Prod, M-(Fac-ShortRecipe), Inputs, Extras, Recipe) :-
     
 
 make([], [], [], _).
-make([N-Prod|RestOfProducts], Facs, Extras, UsedRecipes) :-
+make(N-Prod, Facs, Extras, UsedRecipes) :-
     make_one(N-Prod, StepFac, StepInputs, StepExtras, StepRecipe),
-    
-    
-    append_dedup([StepInputs, RestOfProducts], RestToMake),
-    simplify_io(StepExtras, RestToMake, StepExtrasMin, RestToMakeMin),
-    make(RestToMakeMin, RestOfFacs, RestOfExtras, [StepRecipe|UsedRecipes]),
-    dedup([StepFac|RestOfFacs], Facs),
-    append_dedup([StepExtrasMin, RestOfExtras], Extras).
-    
-make(N-Product, IntermediateFacs, MiningFacs, RenewableFacs, Extras) :-
-    make([N-Product], AllFacs, Extras, []),
-    partition([_-(_-(_-[]))]>>(true), AllFacs, Inputs, IntermediateFacs),
-    partition([_-(miner-_)]>>(true), Inputs, MiningFacs, RenewableFacs).
+    \+member(StepRecipe, UsedRecipes),
+    same_length(NextUsedRecipes, StepInputs),
+    maplist(=([StepRecipe|UsedRecipes]), NextUsedRecipes),
+    maplist(make, StepInputs, RestOfFacss, RestOfExtrass, NextUsedRecipes),
+    append_dedup([[StepFac]|RestOfFacss], Facs),
+    append_dedup([StepExtras|RestOfExtrass], Extras).
 
+make(N-Product, Manufacturers, Miners, RenewableCollectors, Extras) :-
+    make(N-Product, AllFacs, Extras, []),
+    partition([_-(_-(_-[]))]>>(true), AllFacs, Inputs, Manufacturers),
+    partition([_-(miner-_)]>>(true), Inputs, Miners, RenewableCollectors).
+
+print_result([]).
+print_result([[Mfgs, Miners, RenewableCollectors, Extras]|Rest]) :-
+    maplist([N-(Fac-(Ins-Outs)), N-Fac-Ins-Outs]>>(true), Mfgs, MfgsP),
+    maplist([N-(Fac-([Item]-[])), N-Fac-Item]>>(true), Miners, MinersP),
+    maplist([N-(Fac-([Item]-[])), N-Fac-Item]>>(true),
+            RenewableCollectors, RenewableCollectorsP),
+    % write('factories='), write(MfgsP), nl,
+    write('miners='), write(MinersP), nl,
+    write('renewables='), write(RenewableCollectorsP), nl,
+    % write('extras='), write(Extras), nl,
+    nl,
+    print_result(Rest).
+    
 debug_write(Products, Facilities, Inputs, Extras) :-
     write('  making '), write(Products), write(' in '), write(Facilities),
     (Inputs = []; (Inputs \= [], write(' from '), write(Inputs))),
     (Extras = []; (Extras \= [], write(' leaving '), write(Extras))),
     nl.
+
+% findall(
+%     [Mfgs, Miners, Renewables, Extras],
+%     (   make(10-purple_matrix, Mfgs, Miners, Renewables, Extras),
+%         \+member(_-(ray_receiver-_), Renewables)),
+%     Bag),
+% print_result(Bag).
