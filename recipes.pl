@@ -1,17 +1,4 @@
 
-% miner
-recipe([1-iron_ore]-(1-miner)-[]).
-recipe([1-copper_ore]-(1-miner)-[]).
-recipe([1-silicon_ore]-(1-miner)-[]).
-recipe([1-titanium_ore]-(1-miner)-[]).
-recipe([1-stone]-(1-miner)-[]).
-recipe([1-coal]-(1-miner)-[]).
-% recipe([1-fire_ice]-(1-miner)-[]).  % renewable
-recipe([1-organic]-(1-miner)-[]).
-recipe([1-kimberlite]-(1-miner)-[]).
-recipe([1-stalagmite]-(1-miner)-[]).
-recipe([1-grating_xtal]-(1-miner)-[]).
-
 % pump
 recipe([1-water]-(1-pump)-[]).
 recipe([1-sulfuric_acid]-(1-pump)-[]).
@@ -26,6 +13,19 @@ recipe([2-fire_ice]-(10-orbital_collector)-[]).
 
 % ray receiver
 recipe([1-photon]-(10-ray_receiver)-[]).
+
+% miner
+recipe([1-iron_ore]-(1-miner)-[]).
+recipe([1-copper_ore]-(1-miner)-[]).
+recipe([1-silicon_ore]-(1-miner)-[]).
+recipe([1-titanium_ore]-(1-miner)-[]).
+recipe([1-stone]-(1-miner)-[]).
+recipe([1-coal]-(1-miner)-[]).
+% recipe([1-fire_ice]-(1-miner)-[]).  % renewable
+recipe([1-organic]-(1-miner)-[]).
+recipe([1-kimberlite]-(1-miner)-[]).
+recipe([1-stalagmite]-(1-miner)-[]).
+recipe([1-grating_xtal]-(1-miner)-[]).
 
 % fractionator
 recipe([3-deuterium]-(10-fractionator)-[3-hydrogen]).
@@ -68,7 +68,9 @@ recipe([5-deuterium]-(2.5-collider)-[10-hydrogen]).
 recipe([1-strange_matter]-(8-collider)-[2-particle_container, 2-iron, 10-deuterium]).
 
 % assembler
-recipe([2-proliferator]-(1-assembler)-[2-coal]).
+recipe([1-proliferator]-(0.5-assembler)-[1-coal]).
+recipe([1-proliferator2]-(1-assembler)-[2-proliferator, 1-diamond]).
+recipe([1-proliferator3]-(2-assembler)-[2-proliferator2, 1-nanotube]).
 
 recipe([1-gear]-(1-assembler)-[1-iron]).
 recipe([2-coil]-(1-assembler)-[2-magnet, 1-copper]).

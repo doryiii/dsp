@@ -1,4 +1,11 @@
 % Dyson Sphere Program calculator
+% To use, run swipl, then
+%   consult(dsp).
+%   make_all(10-yellow_matrix, [coal]).
+% to find all ways to make yellow matrix without mining for coal.
+% other advanced queries (e.g. only show recipes without Kimberlite) are
+% available via make/3 predicate.
+
 :- consult(recipes).
 :- table is_renewable/1.
 :- table recipe/1.
@@ -10,22 +17,23 @@ is_renewable(Material) :-
     Fac \= miner,
     member(_-Material, Outs).
 
-simplify_io(RawOut, RawIn, Out, In) :-
-    ( member(A-Item, RawOut), member(B-Item, RawIn)
+balance(InRight, InLeft, OutRight, OutLeft) :-
+    ( member(A-Item, InRight), member(B-Item, InLeft)
     ->  ( A =:= B
-        ->  select(A-Item, RawOut, Out),
-            select(B-Item, RawIn, In)
+        ->  select(A-Item, InRight, OutRightTmp),
+            select(B-Item, InLeft, OutLeftTmp)
         ; A > B
         ->  C is A - B,
-            select(A-Item, RawOut, C-Item, Out),
-            select(B-Item, RawIn, In)
+            select(A-Item, InRight, C-Item, OutRightTmp),
+            select(B-Item, InLeft, OutLeftTmp)
         ; A < B
         ->  C is B - A,
-            select(A-Item, RawOut, Out),
-            select(B-Item, RawIn, C-Item, In)
+            select(A-Item, InRight, OutRightTmp),
+            select(B-Item, InLeft, C-Item, OutLeftTmp)
         ; false
-        )
-    ;   Out = RawOut, In = RawIn
+        ),
+        balance(OutRightTmp, OutLeftTmp, OutRight, OutLeft)
+    ;   OutRight = InRight, OutLeft = InLeft
     ).
 
 ratio(L) :-
@@ -51,7 +59,7 @@ append_dedup(ListOfLists, List) :- append(ListOfLists, L), dedup(L, List).
 
 make_step(N-Prod, M-(Fac-ShortRecipe), Inputs, Extras, Recipe) :-
     recipe(Recipe), Recipe = RecipeOuts-(RecipeM-Fac)-RecipeIns,
-    simplify_io(RecipeOuts, RecipeIns, BaseOuts, BaseIns),
+    balance(RecipeOuts, RecipeIns, BaseOuts, BaseIns),
     member(_-Prod, BaseOuts),
     append([BaseOuts, [RecipeM-Fac], BaseIns], BaseAll),
 
@@ -64,22 +72,17 @@ make_step(N-Prod, M-(Fac-ShortRecipe), Inputs, Extras, Recipe) :-
     ratio(Ratios),
     select(N-Prod, Outputs, Extras),
     
-    recipe_short_name(Recipe, ShortRecipe)/*,
-    debug_write([N-Prod], [M-(Fac-ShortRecipe)], Inputs, Extras)*/.
+    recipe_short_name(Recipe, ShortRecipe).
 
-make(N-Prod, Facs, Extras, UsedRecipes) :-
-    make_step(N-Prod, StepFac, StepInputs, StepExtras, StepRecipe),
-    \+member(StepRecipe, UsedRecipes),
-    same_length(NextUsedRecipes, StepInputs),
-    maplist(=([StepRecipe|UsedRecipes]), NextUsedRecipes),
-    maplist(make, StepInputs, RestOfFacss, RestOfExtrass, NextUsedRecipes),
-    append_dedup([[StepFac]|RestOfFacss], Facs),
-    append_dedup([StepExtras|RestOfExtrass], Extras).
-
-make(N-Product, Manufacturers, Miners, RenewableCollectors, Extras) :-
-    make(N-Product, AllFacs, Extras, []),
-    partition([_-(_-(_-[]))]>>(true), AllFacs, Inputs, Manufacturers),
-    partition([_-(miner-_)]>>(true), Inputs, Miners, RenewableCollectors).
+make([], [], []).
+make([N-Prod|RestOfProds], Facs, Extras) :-
+    NFloat is N*1.0,
+    make_step(NFloat-Prod, StepFac, StepInputs, StepExtras, _),
+    balance(RestOfProds, StepExtras, TrueRestOfProds, TrueStepExtras),
+    append_dedup([TrueRestOfProds, StepInputs], ToMakes),
+    make(ToMakes, RestOfFacs, RestOfExtras),
+    dedup([StepFac|RestOfFacs], Facs),
+    append_dedup([TrueStepExtras, RestOfExtras], Extras).
 
 print_result([]).
 print_result([[Mfgs, Miners, RenewableCollectors, Extras]|Rest]) :-
@@ -87,7 +90,9 @@ print_result([[Mfgs, Miners, RenewableCollectors, Extras]|Rest]) :-
     maplist([N-(_-([Item]-[])), N-Item]>>(true), Miners, MinersP),
     maplist([N-(_-([Item]-[])), N-Item]>>(true),
             RenewableCollectors, RenewableCollectorsP),
-    write('factories='), write(MfgsP), nl,
+    write('factories=['), nl,
+    maplist([Fac]>>(write('    '), write(Fac), nl), MfgsP),
+    write(']'), nl,
     write('miners='), write(MinersP), nl,
     write('renewables='), write(RenewableCollectorsP), nl,
     write('extras='), write(Extras), nl,
@@ -100,36 +105,18 @@ debug_write(Products, Facilities, Inputs, Extras) :-
     (Extras = []; (Extras \= [], write(' leaving '), write(Extras))),
     nl.
 
-compare_solutions(Delta, Solution1, Solution2) :-
-    Solution1 = [_, Miners1, Renewables1, Extras1],
-    Solution2 = [_, Miners2, Renewables2, Extras2],
-    Delta = (=) .
-
-
-make_all(N-Prod) :-
+make_all(N-Prod, Ignores) :-
     findall(
         [Mfgs, Miners, Renewables, Extras],
-        (   make(N-Prod, Mfgs, Miners, Renewables, Extras),
-            \+member(_-(ray_receiver-_), Renewables)
+        (   make([N-Prod], AllFacsF, ExtrasF),
+            maplist([MFloat-X, M-X]>>(M is ceiling(MFloat)), AllFacsF, AllFacs),
+            maplist([MFloat-X, M-X]>>(M is ceiling(MFloat)), ExtrasF, Extras),
+            partition([_-(_-(_-[]))]>>(true), AllFacs, Inputs, Mfgs),
+            maplist({Inputs}/[Ignore]>>(\+member(_-(_-([Ignore]-_)), Inputs)), Ignores),
+            partition([_-(miner-_)]>>(true), Inputs, Miners, Renewables)
         ),
         Bag
     ),
-    % findall(
-    %     Solution,
-    %     (   member(Solution, Bag),
-    %         findall(
-    %             OtherSolution,
-    %             (   member(OtherSolution, Bag), Solution \= OtherSolution,
-    %                 Solution = [_, Miners, Renewables, _],
-    %                 OtherSolution = [_, OtherMiners, OtherRenewables, _],
-    %                 subset(Miners, OtherMiners)
-    %             ),
-    %             Supersets
-    %         ),
-    %         Supersets = []
-    %     ),
-    %     SolutionsWithoutSuperset
-    % ),
     print_result(Bag),
-    length(Bag, Total), write('== '), write(Total), write(' =='),
+    length(Bag, Total), write('== '), write(Total), write(' ways =='),
     nl.
