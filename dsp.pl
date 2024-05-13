@@ -7,9 +7,9 @@
 % available via make/3 predicate.
 
 :- consult(recipes).
-:- table is_renewable/1.
-:- table recipe/1.
-:- table make_step/5.
+% :- table is_renewable/1.
+% :- table recipe/1.
+% :- table make_step/5.
 
 
 is_renewable(Material) :-
@@ -57,15 +57,24 @@ dedup([N-Item|Rest], Deduped) :-
 
 append_dedup(ListOfLists, List) :- append(ListOfLists, L), dedup(L, List).
 
-make_step(N-Prod, M-(Fac-ShortRecipe), Inputs, Extras, Recipe) :-
-    recipe(Recipe), Recipe = RecipeOuts-(RecipeM-Fac)-RecipeIns,
-    balance(RecipeOuts, RecipeIns, BaseOuts, BaseIns),
+make_step(N-Prod, M-(Fac-ShortRecipe), Inputs, Extras, P-Proliferator) :-
+    recipe(Recipe), Recipe = RecipeOuts-(RecipeM0-Fac)-RecipeIns,
+    balance(RecipeOuts, RecipeIns, BaseOuts, BaseIns0),
     member(_-Prod, BaseOuts),
-    append([BaseOuts, [RecipeM-Fac], BaseIns], BaseAll),
+    ( (Proliferator = proliferator3, RecipeIns \= [])
+    ->  RecipeM is RecipeM0 / 1.25,
+        maplist([X0-Thing, X-Thing]>>(X is X0 / 1.25), BaseIns0, BaseIns),
+        foldl([X-_, In, Out]>>(Out is In + X), BaseIns, 0, InsCount),
+        BaseP is InsCount / 74
+    ;   RecipeM = RecipeM0,
+        BaseIns = BaseIns0,
+        BaseP = 0
+    ),
+    append([BaseOuts, [RecipeM-Fac], BaseIns, [BaseP-Proliferator]], BaseAll),
 
     substitute_counts(BaseOuts, Outputs),
     substitute_counts(BaseIns, Inputs),
-    append([Outputs, [M-Fac], Inputs], All),
+    append([Outputs, [M-Fac], Inputs, [P-Proliferator]], All),
 
     member(N-Prod, Outputs),
     maplist([NBase-Item, X-Item, NBase-X]>>(true), BaseAll, All, Ratios),
@@ -74,18 +83,19 @@ make_step(N-Prod, M-(Fac-ShortRecipe), Inputs, Extras, Recipe) :-
     
     recipe_short_name(Recipe, ShortRecipe).
 
-make([], [], []).
-make([N-Prod|RestOfProds], Facs, Extras) :-
+make([], [], [], 0-_).
+make([N-Prod|RestOfProds], Facs, Extras, P-Proliferator) :-
     NFloat is N*1.0,
-    make_step(NFloat-Prod, StepFac, StepInputs, StepExtras, _),
+    make_step(NFloat-Prod, StepFac, StepInputs, StepExtras, StepP-Proliferator),
     balance(RestOfProds, StepExtras, TrueRestOfProds, TrueStepExtras),
     append_dedup([TrueRestOfProds, StepInputs], ToMakes),
-    make(ToMakes, RestOfFacs, RestOfExtras),
+    make(ToMakes, RestOfFacs, RestOfExtras, RestOfP-Proliferator),
     dedup([StepFac|RestOfFacs], Facs),
-    append_dedup([TrueStepExtras, RestOfExtras], Extras).
+    append_dedup([TrueStepExtras, RestOfExtras], Extras),
+    P is StepP + RestOfP.
 
 print_result([]).
-print_result([[Mfgs, Miners, RenewableCollectors, Extras]|Rest]) :-
+print_result([[Mfgs, Miners, RenewableCollectors, Extras, P]|Rest]) :-
     maplist([N-(Fac-(Ins-Outs)), N-Fac-Ins-Outs]>>(true), Mfgs, MfgsP),
     maplist([N-(_-([Item]-[])), N-Item]>>(true), Miners, MinersP),
     maplist([N-(_-([Item]-[])), N-Item]>>(true),
@@ -96,6 +106,7 @@ print_result([[Mfgs, Miners, RenewableCollectors, Extras]|Rest]) :-
     write('miners='), write(MinersP), nl,
     write('renewables='), write(RenewableCollectorsP), nl,
     write('extras='), write(Extras), nl,
+    write('proliferator3='), format('~2f', P), nl,
     nl,
     print_result(Rest).
     
@@ -105,10 +116,12 @@ debug_write(Products, Facilities, Inputs, Extras) :-
     (Extras = []; (Extras \= [], write(' leaving '), write(Extras))),
     nl.
 
-make_all(N-Prod, Ignores) :-
+make_all(N-Prod) :- make_all(N-Prod, []).
+make_all(N-Prod, Ignores) :- make_all(N-Prod, Ignores, proliferator3).
+make_all(N-Prod, Ignores, P) :-
     findall(
-        [Mfgs, Miners, Renewables, Extras],
-        (   make([N-Prod], AllFacsF, ExtrasF),
+        [Mfgs, Miners, Renewables, Extras, Px],
+        (   make([N-Prod], AllFacsF, ExtrasF, Px-P),
             maplist([MFloat-X, M-X]>>(M is ceiling(MFloat)), AllFacsF, AllFacs),
             maplist([MFloat-X, M-X]>>(M is ceiling(MFloat)), ExtrasF, Extras),
             partition([_-(_-(_-[]))]>>(true), AllFacs, Inputs, Mfgs),
