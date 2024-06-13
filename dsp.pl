@@ -1,8 +1,12 @@
 % Dyson Sphere Program calculator
 % To use, run swipl, then
 %   consult(dsp).
+%   make_all(5-blue_matrix).
+% to find all ways to make 5/s blue matrix.
 %   make_all(10-yellow_matrix, [coal]).
-% to find all ways to make yellow matrix without mining for coal.
+% to find all ways to make 10/s yellow matrix without mining for coal.
+%   make_all(10-purple_matrix, [coal], none).
+% to find all ways to make 10/s purple matrix without coal nor proliferator.
 % other advanced queries (e.g. only show recipes without Kimberlite) are
 % available via make/3 predicate.
 
@@ -57,15 +61,22 @@ dedup([N-Item|Rest], Deduped) :-
 
 append_dedup(ListOfLists, List) :- append(ListOfLists, L), dedup(L, List).
 
+spray_effect(proliferator, 1.125, 13).
+spray_effect(proliferator2, 1.2, 28).
+spray_effect(proliferator3, 1.25, 74).
+
 make_step(N-Prod, M-(Fac-ShortRecipe), Inputs, Extras, P-Proliferator) :-
     recipe(Recipe), Recipe = RecipeOuts-(RecipeM0-Fac)-RecipeIns,
     balance(RecipeOuts, RecipeIns, BaseOuts, BaseIns0),
     member(_-Prod, BaseOuts),
-    ( (Proliferator = proliferator3, RecipeIns \= [])
-    ->  RecipeM is RecipeM0 / 1.25,
-        maplist([X0-Thing, X-Thing]>>(X is X0 / 1.25), BaseIns0, BaseIns),
+    (   (   member(Proliferator, [proliferator, proliferator2, proliferator3]),
+            RecipeIns \= []
+        )
+    ->  spray_effect(Proliferator, Multiplier, SprayCount),
+        RecipeM is RecipeM0 / Multiplier,
+        maplist([X0-Thing, X-Thing]>>(X is X0 / Multiplier), BaseIns0, BaseIns),
         foldl([X-_, In, Out]>>(Out is In + X), BaseIns, 0, InsCount),
-        BaseP is InsCount / 74
+        BaseP is InsCount / SprayCount
     ;   RecipeM = RecipeM0,
         BaseIns = BaseIns0,
         BaseP = 0
@@ -95,7 +106,7 @@ make([N-Prod|RestOfProds], Facs, Extras, P-Proliferator) :-
     P is StepP + RestOfP.
 
 print_result([]).
-print_result([[Mfgs, Miners, RenewableCollectors, Extras, P]|Rest]) :-
+print_result([[Mfgs, Miners, RenewableCollectors, Extras, P-Pro]|Rest]) :-
     maplist([N-(Fac-(Ins-Outs)), N-Fac-Ins-Outs]>>(true), Mfgs, MfgsP),
     maplist([N-(_-([Item]-[])), N-Item]>>(true), Miners, MinersP),
     maplist([N-(_-([Item]-[])), N-Item]>>(true),
@@ -106,21 +117,15 @@ print_result([[Mfgs, Miners, RenewableCollectors, Extras, P]|Rest]) :-
     write('miners='), write(MinersP), nl,
     write('renewables='), write(RenewableCollectorsP), nl,
     write('extras='), write(Extras), nl,
-    write('proliferator3='), format('~2f', P), nl,
+    write(Pro), write('='), format('~2f', P), nl,
     nl,
     print_result(Rest).
-    
-debug_write(Products, Facilities, Inputs, Extras) :-
-    write('  making '), write(Products), write(' in '), write(Facilities),
-    (Inputs = []; (Inputs \= [], write(' from '), write(Inputs))),
-    (Extras = []; (Extras \= [], write(' leaving '), write(Extras))),
-    nl.
 
 make_all(N-Prod) :- make_all(N-Prod, []).
 make_all(N-Prod, Ignores) :- make_all(N-Prod, Ignores, proliferator3).
 make_all(N-Prod, Ignores, P) :-
     findall(
-        [Mfgs, Miners, Renewables, Extras, Px],
+        [Mfgs, Miners, Renewables, Extras, Px-P],
         (   make([N-Prod], AllFacsF, ExtrasF, Px-P),
             maplist([MFloat-X, M-X]>>(M is ceiling(MFloat)), AllFacsF, AllFacs),
             maplist([MFloat-X, M-X]>>(M is ceiling(MFloat)), ExtrasF, Extras),
